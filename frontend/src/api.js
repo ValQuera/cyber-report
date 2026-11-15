@@ -1,6 +1,13 @@
+import { demoApi } from "./demoApi.js";
+
+export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true"
+  || (import.meta.env.PROD && import.meta.env.VITE_DEMO_MODE !== "false");
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 export async function api(path, options = {}) {
+  if (DEMO_MODE) return demoApi(path, options);
+
   const token = localStorage.getItem("cyber-report-token");
   const headers = new Headers(options.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);

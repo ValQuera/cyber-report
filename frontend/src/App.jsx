@@ -9,7 +9,8 @@ import {
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api } from "./api.js";
+import { api, DEMO_MODE } from "./api.js";
+import { resetDemoData } from "./demoApi.js";
 
 const navigation = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -203,8 +204,8 @@ function App() {
     return matchesText && matchesStatus;
   }), [query, reports, statusFilter]);
 
-  if (initializing) return <div className="boot-screen"><ShieldCheck size={30} /><span>Menyiapkan secure workspace...</span></div>;
-  if (!user) return <AuthScreen onSignIn={signIn} error={error} busy={busy} />;
+  if (initializing) return <div className="boot-screen"><ShieldCheck size={30} /><span>{DEMO_MODE ? "Menyiapkan demo..." : "Menyiapkan secure workspace..."}</span></div>;
+  if (!user) return <AuthScreen onSignIn={signIn} error={error} busy={busy} demoMode={DEMO_MODE} />;
 
   const activePage = navigation.find((item) => item.id === page)?.label || "Overview";
   const allowedNavigation = navigation.filter((item) =>
@@ -230,7 +231,7 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="system-health"><span className="pulse-dot" /><span><b>All systems operational</b><small>API connection secure</small></span><Check size={14} /></div>
+          <div className="system-health"><span className="pulse-dot" /><span><b>{DEMO_MODE ? "Demo mode" : "All systems operational"}</b><small>{DEMO_MODE ? "Data simulasi di browser ini" : "API connection secure"}</small></span><Check size={14} /></div>
           <button className="user-profile" onClick={signOut}>
             <span className="avatar">{initials(user.name)}</span>
             <span className="profile-copy"><b>{user.name}</b><small>{roleLabel[user.role]}</small></span>
@@ -244,7 +245,7 @@ function App() {
           <button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
           <div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><b>{activePage}</b></div>
           <div className="topbar-actions">
-            <span className="live-indicator"><i /> LIVE MONITORING</span>
+            <span className="live-indicator"><i /> {DEMO_MODE ? "DEMO SIMULATION" : "LIVE MONITORING"}</span>
             <span className="topbar-divider" />
             <button className="icon-button notification-button" aria-label="Threat alerts" onClick={() => setPage("alerts")}><Bell size={18} />{alerts.length > 0 && <i />}</button>
             <button className="topbar-user" onClick={signOut}><span className="avatar mini-avatar">{initials(user.name)}</span><ChevronDown size={14} /></button>
@@ -252,10 +253,11 @@ function App() {
         </header>
 
         <section className="page-content">
+          {DEMO_MODE && <div className="inline-alert info-alert"><CircleHelp size={17} /><span>DEMO PUBLIK: data simulasi hanya tersimpan di browser ini. Jangan masukkan informasi pribadi atau laporan nyata.</span></div>}
           {error && <div className="inline-alert error-alert"><AlertTriangle size={17} />{error}<button onClick={() => setError("")}><X size={15} /></button></div>}
           {page === "overview" && <Dashboard dashboard={dashboard} reports={reports} alerts={alerts} isStaff={isStaff} user={user} onNavigate={setPage} onSelect={openReport} />}
-          {page === "reports" && <ReportsPage reports={filteredReports} query={query} setQuery={setQuery} status={statusFilter} setStatus={setStatusFilter} isStaff={isStaff} onSelect={openReport} />}
-          {page === "new-report" && <ReportForm busy={busy} onCancel={() => setPage("overview")} onSubmit={async (formData) => {
+          {page === "reports" && <ReportsPage reports={filteredReports} query={query} setQuery={setQuery} status={statusFilter} setStatus={setStatusFilter} isStaff={isStaff} onSelect={openReport} demoMode={DEMO_MODE} />}
+          {page === "new-report" && <ReportForm busy={busy} demoMode={DEMO_MODE} onCancel={() => setPage("overview")} onSubmit={async (formData) => {
             setBusy(true);
             setError("");
             try {
@@ -271,8 +273,8 @@ function App() {
           }} />}
           {page === "analysis" && <AnalysisPage reports={reports} onSelect={openReport} />}
           {page === "correlations" && <CorrelationPage groups={correlations} />}
-          {page === "monitoring" && <MonitoringPage reports={reports} onSelect={openReport} />}
-          {page === "alerts" && <AlertsPage alerts={alerts} />}
+          {page === "monitoring" && <MonitoringPage reports={reports} onSelect={openReport} demoMode={DEMO_MODE} />}
+          {page === "alerts" && <AlertsPage alerts={alerts} demoMode={DEMO_MODE} />}
           {page === "education" && <EducationPage />}
           {page === "users" && <UsersPage people={people} onToggle={updateUser} />}
           {page === "activity" && <ActivityPage items={activity} />}
@@ -286,12 +288,12 @@ function App() {
   );
 }
 
-function AuthScreen({ onSignIn, error, busy }) {
+function AuthScreen({ onSignIn, error, busy, demoMode }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("demo@cyberreport.id");
   const [password, setPassword] = useState("DemoUser2026!");
   const [name, setName] = useState("");
-  const [showDemo, setShowDemo] = useState(false);
+  const [showDemo, setShowDemo] = useState(demoMode);
   function submit(event) {
     event.preventDefault();
     const payload = { email, password };
@@ -303,7 +305,7 @@ function AuthScreen({ onSignIn, error, busy }) {
       <div className="auth-grid-bg" />
       <header className="auth-top">
         <div className="brand-lockup"><span className="brand-symbol"><Shield size={22} /><i /></span><span className="brand-copy"><b>CYBER<span>REPORT</span></b><small>THREAT INTELLIGENCE</small></span></div>
-        <span className="auth-encrypted"><LockKeyhole size={13} /> ENCRYPTED &amp; SECURE</span>
+        <span className="auth-encrypted"><LockKeyhole size={13} /> {demoMode ? "PUBLIC DEMO · DATA SIMULATION" : <>ENCRYPTED &amp; SECURE</>}</span>
       </header>
       <main className="auth-main">
         <section className="auth-hero">
@@ -317,23 +319,24 @@ function AuthScreen({ onSignIn, error, busy }) {
           <div className="hero-foot"><span /><span>PREVENTION THROUGH COLLABORATION</span><span /></div>
         </section>
         <section className="auth-card">
-          <div className="auth-card-top"><div className="card-overline">SECURE ACCESS</div><span className="lock-emblem"><LockKeyhole size={16} /></span></div>
+          <div className="auth-card-top"><div className="card-overline">{demoMode ? "DEMO ACCESS" : "SECURE ACCESS"}</div><span className="lock-emblem"><LockKeyhole size={16} /></span></div>
           <h2>{isRegister ? "Create your account" : "Welcome back"}</h2>
-          <p className="auth-subtitle">{isRegister ? "Bergabung untuk membuat laporan ancaman." : "Masuk untuk melanjutkan ke secure workspace."}</p>
+          <p className="auth-subtitle">{demoMode ? "Pilih akun simulasi. Jangan masukkan data asli." : isRegister ? "Bergabung untuk membuat laporan ancaman." : "Masuk untuk melanjutkan ke secure workspace."}</p>
           <form onSubmit={submit} className="auth-form">
             {isRegister && <label>Nama lengkap<input required minLength="2" maxLength="80" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama Anda" /></label>}
             <label>Email address<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@email.com" /></label>
             <label>Password<div className="password-wrap"><input required type="password" minLength="8" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimal 8 karakter" /><span><LockKeyhole size={14} /></span></div></label>
             {error && <div className="form-error"><AlertTriangle size={15} />{error}</div>}
-            <button className="primary-button auth-submit" disabled={busy}>{busy ? "Memproses..." : isRegister ? "Buat akun" : "Sign in securely"}<ArrowRight size={17} /></button>
+            <button className="primary-button auth-submit" disabled={busy}>{busy ? "Memproses..." : demoMode ? "Enter demo" : isRegister ? "Buat akun" : "Sign in securely"}<ArrowRight size={17} /></button>
           </form>
-          <div className="auth-switch">{isRegister ? "Sudah punya akun?" : "Belum memiliki akun?"}<button onClick={() => setIsRegister(!isRegister)}>{isRegister ? "Sign in" : "Daftar sekarang"}</button></div>
-          {!isRegister && <button className="demo-toggle" onClick={() => setShowDemo(!showDemo)}><CircleHelp size={14} /> Akun demo untuk presentasi <ChevronDown size={13} className={showDemo ? "rotate" : ""} /></button>}
+          {!demoMode && <div className="auth-switch">{isRegister ? "Sudah punya akun?" : "Belum memiliki akun?"}<button onClick={() => setIsRegister(!isRegister)}>{isRegister ? "Sign in" : "Daftar sekarang"}</button></div>}
+          {!demoMode && !isRegister && <button className="demo-toggle" onClick={() => setShowDemo(!showDemo)}><CircleHelp size={14} /> Akun demo untuk presentasi <ChevronDown size={13} className={showDemo ? "rotate" : ""} /></button>}
           {showDemo && !isRegister && <div className="demo-accounts">
             <button onClick={() => { setEmail("demo@cyberreport.id"); setPassword("DemoUser2026!"); }}>Pelapor <span>demo@cyberreport.id</span></button>
             <button onClick={() => { setEmail("analyst@cyberreport.id"); setPassword("DemoAnalyst2026!"); }}>Analyst <span>analyst@cyberreport.id</span></button>
             <button onClick={() => { setEmail("admin@cyberreport.id"); setPassword("DemoAdmin2026!"); }}>Admin <span>admin@cyberreport.id</span></button>
           </div>}
+          {demoMode && <button className="demo-reset" type="button" onClick={() => resetDemoData()}>Reset demo data in this browser</button>}
         </section>
       </main>
       <footer className="auth-footer"><span>© 2026 CYBER REPORT · KARTIKA CYBER HACKATHON</span><span><i /> PROTOTYPE · DATA DEMO</span></footer>
@@ -402,9 +405,9 @@ function Dashboard({ dashboard, reports, alerts, isStaff, user, onNavigate, onSe
   );
 }
 
-function ReportsPage({ reports, query, setQuery, status, setStatus, isStaff, onSelect }) {
+function ReportsPage({ reports, query, setQuery, status, setStatus, isStaff, onSelect, demoMode }) {
   return <>
-    <PageHeading eyebrow="THREAT INTELLIGENCE · REPORTS" title={isStaff ? "Report management" : "Report history"} description={isStaff ? "Review incoming reports, prioritize investigations, and make verification decisions." : "Lacak perkembangan laporan dan lihat status pemeriksaan oleh tim analis."} action={!isStaff && <span className="private-pill"><LockKeyhole size={13} /> PRIVATE TO YOU</span>} />
+    <PageHeading eyebrow={demoMode ? "DEMO · SIMULATED REPORTS" : "THREAT INTELLIGENCE · REPORTS"} title={isStaff ? "Report management" : "Report history"} description={demoMode ? "Semua laporan dan status di halaman ini adalah data simulasi lokal." : isStaff ? "Review incoming reports, prioritize investigations, and make verification decisions." : "Lacak perkembangan laporan dan lihat status pemeriksaan oleh tim analis."} action={!isStaff && <span className={demoMode ? "prototype-pill" : "private-pill"}>{demoMode ? "LOCAL DEMO DATA" : <><LockKeyhole size={13} /> PRIVATE TO YOU</>}</span>} />
     <div className="toolbar panel">
       <div className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search reports, tickets, or categories" /></div>
       <div className="toolbar-right"><span>{reports.length} reports</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option>All reports</option>{statuses.slice(0, 4).map((item) => <option key={item}>{item}</option>)}</select></div>
@@ -412,7 +415,7 @@ function ReportsPage({ reports, query, setQuery, status, setStatus, isStaff, onS
     <section className="panel report-list-panel">
       {reports.length ? <ReportTable reports={reports} isStaff={isStaff} onSelect={onSelect} /> : <EmptyState icon={Search} title="No matching reports" text="Coba ubah kata kunci atau filter status laporan." />}
     </section>
-    <div className="privacy-note"><LockKeyhole size={15} /><span>Identitas pelapor dan lampiran hanya dapat diakses pihak yang berwenang. Data ini tidak ditampilkan secara publik.</span></div>
+    <div className="privacy-note"><CircleHelp size={15} /><span>{demoMode ? "Mode demo berjalan di browser ini dan tidak menyediakan penyimpanan atau perlindungan data backend." : "Identitas pelapor dan lampiran hanya dapat diakses pihak yang berwenang. Data ini tidak ditampilkan secara publik."}</span></div>
   </>;
 }
 
@@ -431,7 +434,7 @@ function ReportTable({ reports, isStaff, onSelect, compact = false }) {
   </table>{compact && <div className="table-caption"><span>Showing {reports.length} recent reports</span><span>Click any report to view details</span></div>}</div>;
 }
 
-function ReportForm({ busy, onCancel, onSubmit }) {
+function ReportForm({ busy, demoMode, onCancel, onSubmit }) {
   const [form, setForm] = useState({ title: "", description: "", category: "", occurred_at: localDateTime(), privacy_accepted: false });
   const [file, setFile] = useState(null);
   const [localError, setLocalError] = useState("");
@@ -447,7 +450,7 @@ function ReportForm({ busy, onCancel, onSubmit }) {
     onSubmit(data);
   }
   return <>
-    <PageHeading eyebrow="SECURE INTAKE · NEW REPORT" title="Report an incident" description="Ceritakan apa yang terjadi. Tim analis akan meninjau laporan dan lampiran secara rahasia." action={<button className="secondary-button" onClick={onCancel}>Cancel</button>} />
+    <PageHeading eyebrow={demoMode ? "PUBLIC DEMO · SIMULATED REPORT" : "SECURE INTAKE · NEW REPORT"} title="Report an incident" description={demoMode ? "Buat laporan contoh untuk mencoba alur demo. Jangan masukkan data pribadi atau insiden nyata." : "Ceritakan apa yang terjadi. Tim analis akan meninjau laporan dan lampiran secara rahasia."} action={<button className="secondary-button" onClick={onCancel}>Cancel</button>} />
     <form className="report-form-layout" onSubmit={submit}>
       <section className="panel form-panel">
         <div className="form-section-title"><span className="form-step">01</span><div><h2>Incident details</h2><p>Berikan informasi yang cukup agar tim dapat mulai meninjau.</p></div></div>
@@ -457,16 +460,16 @@ function ReportForm({ busy, onCancel, onSubmit }) {
           <label className="field-label">When did this happen? <span className="required">*</span><input required type="datetime-local" value={form.occurred_at} max={localDateTime()} onChange={(event) => update("occurred_at", event.target.value)} /></label>
         </div>
         <label className="field-label">What happened? <span className="required">*</span><textarea required minLength="30" maxLength="5000" rows="6" value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="Jelaskan apa yang Anda lihat, pesan yang diterima, atau dampak yang terjadi. Jangan sertakan kata sandi atau informasi pribadi yang tidak diperlukan." /><span className="field-hint">{form.description.length}/5000 characters · Jangan masukkan kata sandi atau data sensitif.</span></label>
-        <div className="form-section-title evidence-heading"><span className="form-step">02</span><div><h2>Supporting evidence <span className="optional">OPTIONAL</span></h2><p>Lampirkan bukti relevan. Maksimum 5 MB per file.</p></div></div>
-        <label className={`upload-zone ${file ? "file-selected" : ""}`}><input type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" onChange={(event) => { setFile(event.target.files?.[0] || null); setLocalError(""); }} />
-          {file ? <><span className="upload-icon"><CheckCircle2 size={21} /></span><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace</small></> : <><span className="upload-icon"><Download size={20} /></span><b>Drop evidence here, or <em>browse files</em></b><small>PDF, PNG, JPG, TXT · maximum 5 MB</small></>}
+        <div className="form-section-title evidence-heading"><span className="form-step">02</span><div><h2>Supporting evidence <span className="optional">OPTIONAL</span></h2><p>{demoMode ? "Lampiran tidak disimpan dalam demo publik." : "Lampirkan bukti relevan. Maksimum 5 MB per file."}</p></div></div>
+        <label className={`upload-zone ${file ? "file-selected" : ""} ${demoMode ? "demo-upload-disabled" : ""}`}><input type="file" disabled={demoMode} accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" onChange={(event) => { setFile(event.target.files?.[0] || null); setLocalError(""); }} />
+          {demoMode ? <><span className="upload-icon"><CircleHelp size={20} /></span><b>Uploads are disabled in this demo</b><small>No files are sent or stored</small></> : file ? <><span className="upload-icon"><CheckCircle2 size={21} /></span><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace</small></> : <><span className="upload-icon"><Download size={20} /></span><b>Drop evidence here, or <em>browse files</em></b><small>PDF, PNG, JPG, TXT · maximum 5 MB</small></>}
         </label>
-        <label className="privacy-consent"><input type="checkbox" checked={form.privacy_accepted} onChange={(event) => update("privacy_accepted", event.target.checked)} /><span className="custom-check"><Check size={12} /></span><span>Saya menyatakan laporan ini akurat sepanjang pengetahuan saya dan menyetujui pemrosesan data untuk keperluan verifikasi. Identitas dan bukti hanya dapat dilihat pihak berwenang.</span></label>
+        <label className="privacy-consent"><input type="checkbox" checked={form.privacy_accepted} onChange={(event) => update("privacy_accepted", event.target.checked)} /><span className="custom-check"><Check size={12} /></span><span>{demoMode ? "Saya memahami ini hanya data simulasi lokal dan tidak akan memasukkan laporan nyata atau informasi pribadi." : "Saya menyatakan laporan ini akurat sepanjang pengetahuan saya dan menyetujui pemrosesan data untuk keperluan verifikasi. Identitas dan bukti hanya dapat dilihat pihak berwenang."}</span></label>
         {localError && <div className="form-error"><AlertTriangle size={15} />{localError}</div>}
-        <div className="form-actions"><span><LockKeyhole size={14} /> Your report is confidential</span><button className="primary-button" disabled={busy || !form.privacy_accepted}>{busy ? "Mengirim laporan..." : "Submit secure report"}<ArrowRight size={16} /></button></div>
+        <div className="form-actions"><span><LockKeyhole size={14} /> {demoMode ? "Data simulasi di browser ini" : "Your report is confidential"}</span><button className="primary-button" disabled={busy || !form.privacy_accepted}>{busy ? "Mengirim laporan..." : demoMode ? "Submit demo report" : "Submit secure report"}<ArrowRight size={16} /></button></div>
       </section>
       <aside className="form-aside">
-        <div className="aside-info"><span className="aside-icon"><ShieldCheck size={20} /></span><h3>Your privacy comes first</h3><p>Informasi pelapor dan lampiran hanya dapat diakses analyst atau admin yang berwenang.</p><div className="aside-divider" /><ul><li><Check size={14} /> Laporan dienkripsi saat dikirim</li><li><Check size={14} /> Identitas tidak ditampilkan publik</li><li><Check size={14} /> Peringatan hanya dari laporan terverifikasi</li></ul></div>
+        <div className="aside-info"><span className="aside-icon"><ShieldCheck size={20} /></span><h3>{demoMode ? "Demo data only" : "Your privacy comes first"}</h3><p>{demoMode ? "Data simulasi disimpan di localStorage browser ini dan tidak dikirim ke backend." : "Informasi pelapor dan lampiran hanya dapat diakses analyst atau admin yang berwenang."}</p><div className="aside-divider" /><ul>{demoMode ? <><li><CircleHelp size={14} /> Data tidak dibagikan antar pengunjung</li><li><CircleHelp size={14} /> Upload bukti dinonaktifkan</li><li><CircleHelp size={14} /> Status bukan hasil verifikasi nyata</li></> : <><li><Check size={14} /> Laporan dienkripsi saat dikirim</li><li><Check size={14} /> Identitas tidak ditampilkan publik</li><li><Check size={14} /> Peringatan hanya dari laporan terverifikasi</li></>}</ul></div>
         <div className="aside-info ai-note"><span className="aside-icon cyan"><Sparkles size={19} /></span><div className="section-eyebrow">RESPONSIBLE AI</div><h3>Human-led review</h3><p>Analisis otomatis hanyalah rekomendasi awal. Keputusan verifikasi tetap berada di tangan petugas.</p></div>
       </aside>
     </form>
@@ -501,24 +504,24 @@ function CorrelationPage({ groups }) {
   </>;
 }
 
-function MonitoringPage({ reports, onSelect }) {
+function MonitoringPage({ reports, onSelect, demoMode }) {
   const verified = reports.filter((report) => report.verification_status === "Verified");
   const open = verified.filter((report) => report.resolution_status !== "Resolved");
   const resolved = verified.filter((report) => report.resolution_status === "Resolved");
   return <>
-    <PageHeading eyebrow="OPERATIONS · VERIFIED THREATS" title="Threat monitoring" description="Pantau informasi terverifikasi, tingkat prioritas, dan status penanganan." action={<span className="verified-only"><ShieldCheck size={14} /> VERIFIED SIGNALS ONLY</span>} />
+    <PageHeading eyebrow={demoMode ? "DEMO · SIMULATED THREAT DATA" : "OPERATIONS · VERIFIED THREATS"} title={demoMode ? "Demo monitoring" : "Threat monitoring"} description={demoMode ? "Status verifikasi dan penanganan pada halaman ini hanyalah contoh." : "Pantau informasi terverifikasi, tingkat prioritas, dan status penanganan."} action={demoMode ? <span className="prototype-pill">SIMULATED SIGNALS</span> : <span className="verified-only"><ShieldCheck size={14} /> VERIFIED SIGNALS ONLY</span>} />
     <div className="monitoring-metrics"><div className="panel monitor-metric"><span className="monitor-icon green"><ShieldCheck size={18} /></span><span>Verified reports</span><b>{verified.length}</b></div><div className="panel monitor-metric"><span className="monitor-icon amber"><Activity size={18} /></span><span>Open response</span><b>{open.length}</b></div><div className="panel monitor-metric"><span className="monitor-icon blue"><CheckCircle2 size={18} /></span><span>Resolved</span><b>{resolved.length}</b></div></div>
-    <div className="panel monitoring-panel"><div className="panel-heading"><div><div className="section-eyebrow">VERIFIED THREAT REGISTER</div><h2>Current monitoring</h2></div><span className="monitoring-live"><i /> LIVE</span></div>
+    <div className="panel monitoring-panel"><div className="panel-heading"><div><div className="section-eyebrow">{demoMode ? "SIMULATED REGISTER" : "VERIFIED THREAT REGISTER"}</div><h2>{demoMode ? "Sample monitoring" : "Current monitoring"}</h2></div><span className="monitoring-live"><i /> {demoMode ? "DEMO" : "LIVE"}</span></div>
       {verified.length ? <div className="table-scroll"><table className="reports-table"><thead><tr><th>Verified report</th><th>Priority</th><th>Response status</th><th>Last updated</th><th /></tr></thead><tbody>{verified.map((report) => <tr key={report.id} onClick={() => onSelect(report)}><td><div className="table-title"><span className="table-file-icon verified-file"><ShieldCheck size={15} /></span><span><b>{report.title}</b><small>{report.ticket} · {report.category}</small></span></div></td><td><RiskBadge risk={report.risk_level} /></td><td><StatusBadge status={report.resolution_status} /></td><td><span className="date-cell">{formatDate(report.updated_at, true)}</span></td><td><ArrowRight size={15} className="row-arrow-icon" /></td></tr>)}</tbody></table></div> : <EmptyState icon={ShieldCheck} title="No verified information yet" text="Reports appear here only after a human analyst verifies them." />}
     </div>
   </>;
 }
 
-function AlertsPage({ alerts }) {
+function AlertsPage({ alerts, demoMode }) {
   return <>
-    <PageHeading eyebrow="PUBLIC INFORMATION · VERIFIED ONLY" title="Threat alerts" description="Informasi ancaman yang telah ditinjau dan dipublikasikan secara resmi." action={<span className="verified-only"><ShieldCheck size={14} /> HUMAN VERIFIED</span>} />
-    <div className="alert-policy"><span className="alert-policy-icon"><ShieldCheck size={18} /></span><div><b>Trusted, verified information</b><p>Peringatan hanya diterbitkan oleh petugas setelah proses verifikasi. Prediksi AI dan laporan yang belum diverifikasi tidak ditampilkan di halaman ini.</p></div></div>
-    {alerts.length ? <div className="alert-list">{alerts.map((alert) => <article className="panel public-alert" key={alert.id}><span className="public-alert-icon"><AlertTriangle size={19} /></span><div className="public-alert-content"><div className="public-alert-meta"><span className="verified-label"><CheckCircle2 size={13} /> VERIFIED ALERT</span><span>{formatDate(alert.updated_at)}</span></div><h2>{alert.title}</h2><p>{alert.category} · Informasi telah diverifikasi oleh security analyst. Gunakan kewaspadaan dan ikuti prosedur keamanan organisasi.</p><div className="public-alert-foot"><RiskBadge risk={alert.risk_level} /><span>{alert.ticket}</span></div></div></article>)}</div> : <div className="panel"><EmptyState icon={Bell} title="No active threat alerts" text="Belum ada peringatan publik. Peringatan akan muncul setelah laporan terverifikasi dan dipublikasikan oleh petugas." /></div>}
+    <PageHeading eyebrow={demoMode ? "DEMO · SIMULATED ALERTS" : "PUBLIC INFORMATION · VERIFIED ONLY"} title={demoMode ? "Demo threat alerts" : "Threat alerts"} description={demoMode ? "Contoh tampilan peringatan; bukan ancaman dunia nyata." : "Informasi ancaman yang telah ditinjau dan dipublikasikan secara resmi."} action={demoMode ? <span className="prototype-pill">DEMO DATA</span> : <span className="verified-only"><ShieldCheck size={14} /> HUMAN VERIFIED</span>} />
+    <div className="alert-policy"><span className="alert-policy-icon"><ShieldCheck size={18} /></span><div><b>{demoMode ? "Simulated alert flow" : "Trusted, verified information"}</b><p>{demoMode ? "Status dan isi di bawah ini hanya data contoh untuk presentasi, bukan hasil pemeriksaan keamanan." : "Peringatan hanya diterbitkan oleh petugas setelah proses verifikasi. Prediksi AI dan laporan yang belum diverifikasi tidak ditampilkan di halaman ini."}</p></div></div>
+    {alerts.length ? <div className="alert-list">{alerts.map((alert) => <article className="panel public-alert" key={alert.id}><span className="public-alert-icon"><AlertTriangle size={19} /></span><div className="public-alert-content"><div className="public-alert-meta"><span className="verified-label"><CheckCircle2 size={13} /> {demoMode ? "DEMO ALERT" : "VERIFIED ALERT"}</span><span>{formatDate(alert.updated_at)}</span></div><h2>{alert.title}</h2><p>{demoMode ? "Data verifikasi simulasi untuk demonstrasi. Jangan gunakan sebagai informasi ancaman nyata." : `${alert.category} · Informasi telah diverifikasi oleh security analyst. Gunakan kewaspadaan dan ikuti prosedur keamanan organisasi.`}</p><div className="public-alert-foot"><RiskBadge risk={alert.risk_level} /><span>{alert.ticket}</span></div></div></article>)}</div> : <div className="panel"><EmptyState icon={Bell} title="No active threat alerts" text={demoMode ? "Belum ada contoh peringatan aktif pada demo ini." : "Belum ada peringatan publik. Peringatan akan muncul setelah laporan terverifikasi dan dipublikasikan oleh petugas."} /></div>}
   </>;
 }
 
